@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pos
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: pos
+    volumes:
+      - pos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pos -d pos"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://pos:${DB_PASSWORD}@db:5432/pos
+      JWT_SECRET: ${JWT_SECRET}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
+      OWNER_EMAIL: ${OWNER_EMAIL}
+      OWNER_PASSWORD: ${OWNER_PASSWORD}
+      OWNER_NAME: ${OWNER_NAME:-}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      MAX_USERS: ${MAX_USERS:-50}
+    ports:
+      - "127.0.0.1:8080:8080"     # your existing Caddy proxies the domain to this
+    volumes:
+      - ./web:/srv/web:ro          # UI changes go live without rebuilding the image
+    networks: [default, n8n_net]
+
+volumes:
+  pos_pgdata:
+
+networks:
+  n8n_net:
+    name: n8n_net
+    external: true
