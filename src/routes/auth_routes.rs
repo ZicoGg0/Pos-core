@@ -79,3 +79,22 @@ pub async fn me(m: Member, State(s): State<AppState>) -> Result<Json<Value>, App
         .await?;
     Ok(Json(v))
 }
+
+#[derive(Deserialize)]
+pub struct PwChange { current: String, new_password: String }
+
+/// Change your own password. Any signed-in account (owner or member). A wrong current password is
+/// a 400, not a 401, so the app does not treat it as an expired session and log the user out.
+pub async fn change_password(m: Member, State(s): State<AppState>, Json(b): Json<PwChange>) -> Result<Json<Value>, AppError> {
+    if b.new_password.len() < 8 || b.new_password.len() > 128 {
+        return Err(AppError::BadRequest("new password must be 8 to 128 characters".into()));
+    }
+    let (hash,): (String,) = sqlx::query_as("SELECT password_hash FROM users WHERE id = $1")
+        .bind(m.id).fetch_one(&s.db).await?;
+    if !auth::verify_password(&b.current, &hash) {
+        return Err(AppError::BadRequest("your current password is incorrect".into()));
+    }
+    let nh = auth::hash_password(&b.new_password).map_err(|e| AppError::Internal(e.to_string()))?;
+    sqlx::query("UPDATE users SET password_hash = $2 WHERE id = $1").bind(m.id).bind(nh).execute(&s.db).await?;
+    Ok(Json(json!({ "ok": true })))
+}

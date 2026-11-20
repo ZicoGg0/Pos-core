@@ -1,8 +1,8 @@
 # Personal OS — Development Status
 
 **Last updated:** 2026-11-20
-**Current phase:** PHASE 5 — Finance module COMPLETE & tested locally (backend + frontend).
-Next: assistant Finance tools (apply at deploy), Settings (Phase 6), backups (Phase 7), tests.
+**Current phase:** PHASE 6 — Settings COMPLETE & tested. (Finance = Phase 5 done.)
+Next: backups (Phase 7), backend test suite, UI polish, assistant Finance tools (at deploy).
 **Lead engineer note:** This file is the single source of truth for project state.
 Update it after each completed phase.
 
@@ -170,9 +170,22 @@ production/schema action on approval:
 - **Not yet done (needs deploy coordination):** assistant Finance tools — they call
   `/finance/*` which won't exist in prod until the API is deployed. Prepared for the deploy step.
 
+## Phase 6 — Settings (DONE, local)
+- Migration `0009_prefs.sql`: `user_prefs` (per user: currency, date_format, timezone, theme).
+- API: `GET/PUT /settings/prefs` (self-scoped via `Member`, get-or-create), and
+  `POST /auth/password` (verify current → set new; **wrong current = 400, not 401**, so the app
+  doesn't force a logout).
+- Frontend: new **Settings** view + nav: Account (name/email/role + change-password form),
+  Appearance (light/dark/system theme, synced to server), Preferences (currency/date format/
+  timezone — stored and actually applied: currency drives new-transaction currency + display,
+  date format drives Finance date rendering), honest Notifications/Privacy info, About (v1.0.0).
+- **Tested:** 10 backend checks pass (defaults, validation, password round-trip, member self-
+  scope); browser test renders Settings + Finance with **0 console errors**, theme toggle works,
+  email resolves. SW cache bumped `pos-v8`→`pos-v9`, `/settings` excluded from cache.
+
 ## Pending approvals
 - [x] Finance DB schema (migration 0008) — APPROVED, implemented.
-- [ ] Settings `user_prefs` schema (Phase 6) — proposal pending.
+- [x] Settings `user_prefs` schema (migration 0009) — APPROVED (prefs + password), implemented.
 - [ ] Settings `user_prefs` schema (if needed) — blocks Phase 6.
 - [ ] Any production migration / deploy — blocks Phase 10.
 - [ ] Backup cron on the VM — needs owner action or Remote Control.

@@ -4,6 +4,7 @@ pub mod checkins;
 pub mod comm;
 pub mod finance;
 pub mod jobs;
+pub mod settings;
 pub mod lifestyle;
 pub mod study;
 pub mod tasks;
@@ -18,6 +19,8 @@ pub fn router() -> Router<AppState> {
         .route("/assistant/chat", post(assistant::chat))
         .route("/auth/signup", post(auth_routes::signup))
         .route("/auth/me", get(auth_routes::me))
+        .route("/auth/password", post(auth_routes::change_password))
+        .route("/settings/prefs", get(settings::prefs_get).put(settings::prefs_put))
         .route("/comm/pair/code", post(comm::pair_code))
         .route("/comm/pair/join", post(comm::pair_join))
         .route("/comm/conversations", get(comm::conversations))
