@@ -2,6 +2,7 @@ pub mod assistant;
 pub mod auth_routes;
 pub mod checkins;
 pub mod comm;
+pub mod finance;
 pub mod jobs;
 pub mod lifestyle;
 pub mod study;
@@ -46,4 +47,13 @@ pub fn router() -> Router<AppState> {
         .route("/study/reviews/:id/answer", post(study::reviews_answer))
         .route("/study/reviews/:id", axum::routing::delete(study::reviews_del))
         .route("/checkins", get(checkins::list).post(checkins::upsert))
+        .route("/finance/overview", get(finance::overview))
+        .route("/finance/transactions", get(finance::tx_list).post(finance::tx_create))
+        .route("/finance/transactions/:id", patch(finance::tx_update).delete(finance::tx_delete))
+        .route("/finance/budgets", get(finance::budgets_list).post(finance::budgets_upsert))
+        .route("/finance/budgets/:id", axum::routing::delete(finance::budgets_del))
+        .route("/finance/debts", get(finance::debts_list).post(finance::debts_create))
+        .route("/finance/debts/:id", patch(finance::debts_patch))
+        .route("/finance/debts/:id/repayments", post(finance::debt_repay))
+        .route("/finance/insights", get(finance::insights))
 }
