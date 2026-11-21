@@ -1,8 +1,10 @@
 # Personal OS — Development Status
 
 **Last updated:** 2026-11-21
-**Current phase:** PHASE 7 (backups) + automated test suite + CI COMPLETE & tested.
-Next: UI/UX polish (Phase 8), security hardening (login rate-limit), deploy coordination.
+**Current phase:** PHASES 5–11 substantially COMPLETE. Finance, Settings, backups, tests, CI,
+security hardening, and PWA/APK-readiness all done & verified locally. Remaining = deploy-time
+coordination (deploy final build → Gmail reconnect → assistant Finance tools) + optional UI polish.
+Next action for owner: deploy the final build; then I add assistant Finance tools live.
 **Lead engineer note:** This file is the single source of truth for project state.
 Update it after each completed phase.
 
@@ -203,9 +205,30 @@ production/schema action on approval:
   boot the API (runs migrations 0001–0009 + owner bootstrap), run the smoke suite. Official
   `actions/checkout` only; test-only dummy secrets. (Fills the §13 "no tests existed" gap.)
 
+## Phase 9 — Security hardening (DONE)
+- Login brute-force throttle (10 fails/email/15 min → 429); per-email so one account never affects
+  another; 429 `TooManyRequests` variant. Full §11 audit otherwise green (params, roles, boundaries,
+  upload limits, no secrets in frontend). Regression = smoke suite 45/45 + CI.
+
+## Phase 11 — PWA / APK readiness (DONE, verified in-browser)
+- Manifest upgraded: `id`, `scope`, `orientation`, `description`, `lang`, `dir`, `categories`,
+  3 icons (incl. maskable), 2 screenshots (wide 1280×800 + narrow 390×844). Apple/mobile install
+  tags added to `<head>`.
+- Verified: all required manifest fields present, every asset serves 200, SW active,
+  **offline reload → 200 with shell rendered from cache**.
+- `APK_READINESS.md` (PWABuilder→TWA steps, assetlinks.json, blockers) and
+  `DEPLOY_CHECKLIST.md` (backup → deploy → verify → cron → Gmail → assistant tools → rollback).
+
 ## Pending approvals
 - [x] Finance DB schema (migration 0008) — APPROVED, implemented.
 - [x] Settings `user_prefs` schema (migration 0009) — APPROVED (prefs + password), implemented.
+
+## Remaining (deploy-time, need the live API)
+- [ ] Deploy final build to prod (owner, via DEPLOY_CHECKLIST.md).
+- [ ] Reconnect Gmail in n8n → fixes Job Finder (owner; steps in checklist).
+- [ ] Add assistant Finance tools to the n8n Assistant workflow (me, once API is live) + test
+      read/write/ask-first against the live server.
+- [ ] Generate APK via PWABuilder + host assetlinks.json (owner-authorized final stage).
 - [ ] Settings `user_prefs` schema (if needed) — blocks Phase 6.
 - [ ] Any production migration / deploy — blocks Phase 10.
 - [ ] Backup cron on the VM — needs owner action or Remote Control.
