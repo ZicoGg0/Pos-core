@@ -170,8 +170,8 @@ pub async fn update(
     // Rule: the moment a job is marked applied, schedule a follow-up task for 5 days later.
     if b.status.as_deref() == Some("applied") && prev != "applied" {
         sqlx::query(
-            "INSERT INTO tasks (title, area, priority, due_at, source)
-             VALUES ($1, 'jobs', 2, now() + interval '5 days', 'system')",
+            "INSERT INTO tasks (user_id, title, area, priority, due_at, source)
+             VALUES ((SELECT id FROM users WHERE role='owner' ORDER BY created_at LIMIT 1), $1, 'jobs', 2, now() + interval '5 days', 'system')",
         )
         .bind(format!(
             "Follow up: {} @ {}",

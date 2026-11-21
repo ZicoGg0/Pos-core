@@ -119,3 +119,52 @@ impl FromRequestParts<AppState> for Member {
         Ok(Member { id })
     }
 }
+
+/// Extractor for per-user features. Any signed-in account (owner or member) acts on its OWN data;
+/// the static service key acts as the owner, so n8n automations and the assistant keep operating on
+/// the owner's data. Members are no longer blocked here — isolation is enforced by scoping every
+/// query to `CurrentUser.id`.
+pub struct CurrentUser {
+    pub id: uuid::Uuid,
+}
+
+#[async_trait]
+impl FromRequestParts<AppState> for CurrentUser {
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        let header = parts
+            .headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .ok_or(AppError::Unauthorized)?;
+        let token = header.strip_prefix("Bearer ").ok_or(AppError::Unauthorized)?;
+
+        // The service key stands in for the owner.
+        if constant_time_eq(token.as_bytes(), state.cfg.service_key.as_bytes()) {
+            let (id,): (uuid::Uuid,) =
+                sqlx::query_as("SELECT id FROM users WHERE role = 'owner' ORDER BY created_at LIMIT 1")
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|_| AppError::Unauthorized)?;
+            return Ok(CurrentUser { id });
+        }
+
+        let c = decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(state.cfg.jwt_secret.as_bytes()),
+            &Validation::default(),
+        )
+        .map_err(|_| AppError::Unauthorized)?
+        .claims;
+        let id: uuid::Uuid = c.sub.parse().map_err(|_| AppError::Unauthorized)?;
+        let exists: Option<(i32,)> = sqlx::query_as("SELECT 1 FROM users WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&state.db)
+            .await?;
+        if exists.is_none() {
+            return Err(AppError::Unauthorized);
+        }
+        Ok(CurrentUser { id })
+    }
+}

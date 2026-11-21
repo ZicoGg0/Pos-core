@@ -86,8 +86,10 @@ A=$(curl -s $BASE/auth/signup -H 'content-type: application/json' -d '{"email":"
 check "signup role member" "$(echo "$A"|j "['role']")" member
 BT=$(curl -s $BASE/auth/signup -H 'content-type: application/json' -d '{"email":"sb'$RANDOM'@t.local","password":"passpass1","name":"B"}'|j "['token']")
 CT=$(curl -s $BASE/auth/signup -H 'content-type: application/json' -d '{"email":"sc'$RANDOM'@t.local","password":"passpass1","name":"C"}'|j "['token']")
-check "member -> owner route 403" "$(code $BASE/tasks -H "authorization: Bearer $AT")" 403
-check "member -> finance 403" "$(code $BASE/finance/overview -H "authorization: Bearer $AT")" 403
+check "member -> /tasks 200 (own data)" "$(code $BASE/tasks -H "authorization: Bearer $AT")" 200
+check "member -> /finance 200 (own data)" "$(code $BASE/finance/overview -H "authorization: Bearer $AT")" 200
+check "member -> /jobs 403 (owner-only)" "$(code $BASE/jobs -H "authorization: Bearer $AT")" 403
+check "member -> /assistant 403 (owner-only)" "$(code -X POST $BASE/assistant/chat -H "authorization: Bearer $AT" -H 'content-type: application/json' -d '{\"message\":\"hi\"}')" 403
 CODE=$(curl -s -X POST $BASE/comm/pair/code -H "authorization: Bearer $AT"|j "['code']")
 check "pair code 8 chars" "${#CODE}" 8
 CONV=$(curl -s -X POST $BASE/comm/pair/join -H "authorization: Bearer $BT" -H 'content-type: application/json' -d "{\"code\":\"$CODE\"}"|j "['id']")
