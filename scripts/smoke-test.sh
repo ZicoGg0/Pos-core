@@ -29,6 +29,11 @@ if [ -n "${SERVICE_API_KEY:-}" ]; then
   check "service key -> /comm 401" "$(code $BASE/comm/conversations -H "authorization: Bearer $SERVICE_API_KEY")" 401
 fi
 
+echo "# rate limiting"
+RLM="rl-$RANDOM@nope.local"
+for n in $(seq 1 10); do code $BASE/auth/login -H 'content-type: application/json' -d "{\"email\":\"$RLM\",\"password\":\"x\"}" >/dev/null; done
+check "login rate-limit 429 after 10 fails" "$(code $BASE/auth/login -H 'content-type: application/json' -d "{\"email\":\"$RLM\",\"password\":\"x\"}")" 429
+
 echo "# tasks"
 TID=$(curl -s $BASE/tasks -H "$AH" -H 'content-type: application/json' -d '{"title":"t1","priority":1}' | j "['id']")
 [ -n "$TID" ] && ok "task create" || no "task create"

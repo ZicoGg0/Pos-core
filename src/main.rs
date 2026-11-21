@@ -27,6 +27,8 @@ pub struct AppState {
     pub cfg: Arc<Config>,
     // Wrong pairing-code guesses per user: (count, first failure).
     pub join_fails: Arc<Mutex<HashMap<uuid::Uuid, (u32, Instant)>>>,
+    // Failed sign-in attempts per email: (count, first failure).
+    pub login_fails: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
 }
 
 fn require(name: &str) -> anyhow::Result<String> {
@@ -91,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
     let web_dir = env::var("WEB_DIR").unwrap_or_else(|_| "web".into());
     let app = routes::router()
         .fallback_service(ServeDir::new(web_dir))
-        .with_state(AppState { db, cfg, join_fails: Arc::new(Mutex::new(HashMap::new())) })
+        .with_state(AppState { db, cfg, join_fails: Arc::new(Mutex::new(HashMap::new())), login_fails: Arc::new(Mutex::new(HashMap::new())) })
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 

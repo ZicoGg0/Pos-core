@@ -8,6 +8,7 @@ pub enum AppError {
     NotFound,
     BadRequest(String),
     Internal(String),
+    TooManyRequests(String),
 }
 
 impl IntoResponse for AppError {
@@ -17,6 +18,7 @@ impl IntoResponse for AppError {
             AppError::Forbidden => (StatusCode::FORBIDDEN, "not allowed for this account".to_string()),
             AppError::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
+            AppError::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, m),
             AppError::Internal(m) => {
                 tracing::error!("internal error: {m}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal error".to_string())

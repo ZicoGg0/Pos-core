@@ -3,6 +3,7 @@ use axum::{extract::State, http::StatusCode, Json};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
+use std::time::{Duration, Instant};
 
 #[derive(Deserialize)]
 pub struct Login {
@@ -11,18 +12,36 @@ pub struct Login {
 }
 
 pub async fn login(State(s): State<AppState>, Json(b): Json<Login>) -> Result<Json<Value>, AppError> {
+    let email = b.email.trim().to_lowercase();
+    // Brute-force throttle: 10 failed attempts per email per 15 minutes.
+    {
+        let mut f = s.login_fails.lock().unwrap();
+        if let Some((n, since)) = f.get(&email).copied() {
+            if since.elapsed() > Duration::from_secs(900) {
+                f.remove(&email);
+            } else if n >= 10 {
+                return Err(AppError::TooManyRequests("too many sign-in attempts, try again in a few minutes".into()));
+            }
+        }
+    }
     let row: Option<(Uuid, String, String, String)> =
         sqlx::query_as("SELECT id, password_hash, role, name FROM users WHERE email = $1")
-            .bind(b.email.trim().to_lowercase())
+            .bind(&email)
             .fetch_optional(&s.db)
             .await?;
 
     match row {
         Some((id, hash, role, name)) if auth::verify_password(&b.password, &hash) => {
+            s.login_fails.lock().unwrap().remove(&email);
             let token = auth::issue_token(&id.to_string(), &role, &s.cfg.jwt_secret)?;
             Ok(Json(json!({ "token": token, "role": role, "name": name, "id": id })))
         }
-        _ => Err(AppError::Unauthorized),
+        _ => {
+            let mut f = s.login_fails.lock().unwrap();
+            let e = f.entry(email).or_insert((0, Instant::now()));
+            e.0 += 1;
+            Err(AppError::Unauthorized)
+        }
     }
 }
 
