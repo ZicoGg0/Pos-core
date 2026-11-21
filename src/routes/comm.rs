@@ -185,6 +185,27 @@ pub async fn messages_create(m: Member, State(s): State<AppState>, Path(conv): P
         .bind(b.id).bind(conv).bind(m.id).fetch_optional(&s.db).await?;
     let v = v.ok_or_else(|| AppError::BadRequest("message id already used".into()))?;
     let code = if ins.rows_affected() == 1 { StatusCode::CREATED } else { StatusCode::OK };
+    if code == StatusCode::CREATED {
+        // Notify the other participant (best-effort, off the response path).
+        let s2 = s.clone();
+        let sender = m.id;
+        let kind = b.kind.clone();
+        let preview = body.clone();
+        tokio::spawn(async move {
+            if let Ok((recipient, sname)) = sqlx::query_as::<_, (uuid::Uuid, String)>(
+                "SELECT CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END, u.name
+                 FROM conversations c JOIN users u ON u.id = $2 WHERE c.id = $1",
+            ).bind(conv).bind(sender).fetch_one(&s2.db).await {
+                let text = match kind.as_str() {
+                    "text" => preview.unwrap_or_default(),
+                    "image" => "Photo".to_string(),
+                    "audio" => "Voice note".to_string(),
+                    _ => "File".to_string(),
+                };
+                crate::routes::push::send_to_user(&s2, recipient, &sname, &text, "/?v=comms").await;
+            }
+        });
+    }
     Ok((code, Json(v)))
 }
 

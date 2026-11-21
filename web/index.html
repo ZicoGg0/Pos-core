@@ -214,11 +214,11 @@ async function vStudy(){const td=today(),since=new Date(Date.now()-6*864e5).toLo
 async function render(){const V=$('#view');if(!V)return;
  if(me&&me.role==='member')view='comms';document.querySelectorAll('.nv[data-v],.bn[data-v]').forEach(b=>{if(b.dataset.v===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('#ttl').textContent=TITLES[view];
  const changed=lastView!==view;if(changed){V.innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';lastView=view}
- try{const h=await({today:vToday,tasks:vTasks,jobs:vJobs,health:vHealth,fun:vFun,study:vStudy,comms:vComms,assist:vAssist,finance:vFinance,settings:vSettings}[view])();if(view!==lastView)return;V.innerHTML=h;V.classList.toggle('cmain',view==='comms'||view==='assist');if(view==='comms')commInit();if(view==='assist')asInit();if(changed){V.classList.remove('fade');void V.offsetWidth;V.classList.add('fade')}}
+ try{const h=await({today:vToday,tasks:vTasks,jobs:vJobs,health:vHealth,fun:vFun,study:vStudy,comms:vComms,assist:vAssist,finance:vFinance,settings:vSettings}[view])();if(view!==lastView)return;V.innerHTML=h;V.classList.toggle('cmain',view==='comms'||view==='assist');if(view==='comms')commInit();if(view==='assist')asInit();if(view==='settings')pushSync();if(changed){V.classList.remove('fade');void V.offsetWidth;V.classList.add('fade')}}
  catch(e){if(token)V.innerHTML=`<div class="card cp"><p class="err">${esc(e.message)}</p><p class="mu sm">Check your connection, then try again.</p><button class="btn" onclick="render()">Try again</button></div>`}}
 async function boot(){lastView='';if(!token){authScreen();return}
  if(!me){try{me=await api('/auth/me');localStorage.setItem('me',JSON.stringify(me))}catch(e){if(!token)return;me={id:'',name:'',role:'owner'}}}
- await loadPrefs();if(me.role==='member')view='comms';shell();render()}
+ await loadPrefs();const _vp=new URLSearchParams(location.search).get('v');if(_vp&&LIVE.includes(_vp))view=_vp;if(me.role==='member')view='comms';shell();render()}
 /* ---------- Assistant ---------- */
 let ahist=(()=>{try{return JSON.parse(localStorage.getItem('as_h')||'[]')}catch{return[]}})(),abusy=false,aerr=null;
 const ASQ=['What is on my plate today?','How much did I spend this month?','Record a 2000 transport expense','Log my lunch: jollof rice and chicken'];
@@ -364,6 +364,27 @@ async function loadPrefs(){try{const p=await api('/settings/prefs');PREFS={curre
 const setTheme=mode=>act(async()=>{const d=document.documentElement;if(mode==='system'){d.removeAttribute('data-theme');localStorage.removeItem('th')}else{d.dataset.theme=mode;localStorage.setItem('th',mode)}PREFS.theme=mode;try{await api('/settings/prefs',{method:'PUT',body:JSON.stringify({theme:mode})})}catch(e){}render()});
 const savePrefs=()=>act(async()=>{const cur=($('#pcur').value.trim().toUpperCase())||'NGN';if(cur.length!==3){$('#prerr').textContent='Currency must be a 3-letter code.';return}const p=await api('/settings/prefs',{method:'PUT',body:JSON.stringify({currency:cur,date_format:$('#pdf').value,timezone:$('#ptz').value.trim()||'Africa/Lagos'})});PREFS={...PREFS,currency:p.currency,date_format:p.date_format,timezone:p.timezone};toast('Preferences saved');render()});
 const savePw=()=>act(async()=>{const c=$('#pwc').value,n=$('#pwn').value,n2=$('#pwn2').value;if(n.length<8){$('#pwerr').textContent='New password must be at least 8 characters.';return}if(n!==n2){$('#pwerr').textContent='New passwords do not match.';return}await api('/auth/password',{method:'POST',body:JSON.stringify({current:c,new_password:n})});toast('Password changed');$('#pwc').value='';$('#pwn').value='';$('#pwn2').value=''});
+
+/* push notifications */
+let pushOn=false;
+function urlB64ToU8(k){const pad='='.repeat((4-k.length%4)%4);const b=(k+pad).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(b);const a=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i);return a}
+async function pushSync(){const btn=$('#pushbtn');if(!btn)return;
+ if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)){btn.textContent='Not supported here';btn.disabled=true;return}
+ try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+  if(sub&&Notification.permission==='granted'){btn.textContent='Notifications on — tap to turn off';btn.classList.remove('pri');pushOn=true}
+  else{btn.textContent='Enable notifications';btn.classList.add('pri');pushOn=false}}catch(e){}}
+const togglePush=()=>act(async()=>{const er=$('#pusherr');if(er)er.textContent='';
+ if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)){if(er)er.textContent='This device does not support notifications.';return}
+ const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+ if(sub&&Notification.permission==='granted'){try{await api('/push/unsubscribe',{method:'POST',body:JSON.stringify({endpoint:sub.endpoint})})}catch(_){}await sub.unsubscribe().catch(()=>{});toast('Notifications turned off');pushSync();return}
+ const perm=await Notification.requestPermission();
+ if(perm!=='granted'){if(er)er.textContent='Notifications are blocked. Allow them for this app in your settings.';return}
+ const r=await api('/push/key');if(!r||!r.key){if(er)er.textContent='Notifications are not set up on the server yet.';return}
+ const ns=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(r.key)});
+ const j=ns.toJSON();
+ await api('/push/subscribe',{method:'POST',body:JSON.stringify({endpoint:ns.endpoint,keys:{p256dh:j.keys.p256dh,auth:j.keys.auth}})});
+ toast('Notifications on');pushSync()});
+const pushTest=()=>act(async()=>{const r=await api('/push/test',{method:'POST'});toast(r&&r.sent>0?'Test notification sent':'Enable notifications first')});
 async function vSettings(){
  const p=await api('/settings/prefs');
  const tmode=localStorage.getItem('th')||(p.theme||'system');
@@ -383,9 +404,9 @@ async function vSettings(){
    <label for="pdf">Date format</label><select id="pdf">${['DMY','MDY','YMD','ISO'].map(v=>`<option value="${v}" ${p.date_format===v?'selected':''}>${v} — ${ex[v]}</option>`).join('')}</select>
    <label for="ptz">Timezone</label><input id="ptz" value="${esc(p.timezone||'Africa/Lagos')}" style="width:220px">
    <p class="err" id="prerr"></p><button class="btn pri" style="margin-top:10px" onclick="savePrefs()">Save preferences</button></section>
-  <section class="card cp c5"><h2>Notifications</h2><p class="mu sm">New-job alerts and daily meal and exercise ideas are sent by your n8n automations and email. Turn them on or off, or reconnect Gmail, in your n8n workflows.</p>
+  <section class="card cp c5"><h2>Notifications</h2><p class="mu sm" style="margin:2px 0 8px">Get a push on this device for new messages and a daily reminder.</p><div class="chips" style="margin:0"><button class="btn pri" id="pushbtn" onclick="togglePush()">Enable notifications</button><button class="btn" onclick="pushTest()">Send test</button></div><p class="err" id="pusherr"></p><p class="mu sm" style="margin:8px 0 0">Job alerts and daily meal and exercise ideas also come from your n8n automations and email.</p>
    <h2 style="margin-top:14px">Privacy &amp; security</h2><p class="mu sm">You're signed in with a 30-day token kept on this device. Sign out to remove it here. Your data and chat media live in your own Postgres database and are included in the nightly backup.</p>
-   <h2 style="margin-top:14px">About</h2><p class="mu sm">Personal OS v${APP_VERSION} · offline cache pos-v11</p>
+   <h2 style="margin-top:14px">About</h2><p class="mu sm">Personal OS v${APP_VERSION} · offline cache pos-v12</p>
    <button class="btn" style="margin-top:8px" onclick="logout()">Sign out</button></section>
  </div>`;
 }

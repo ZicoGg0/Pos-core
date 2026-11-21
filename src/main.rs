@@ -19,6 +19,10 @@ pub struct Config {
     // Open sign-up for Communication members (they never see the owner's data).
     pub allow_signup: bool,
     pub max_users: i32,
+    // Web Push (VAPID). Empty private key disables push.
+    pub vapid_public: String,
+    pub vapid_private: String,
+    pub vapid_subject: String,
 }
 
 #[derive(Clone)]
@@ -55,6 +59,9 @@ async fn main() -> anyhow::Result<()> {
         n8n_base: env::var("N8N_BASE_URL").unwrap_or_else(|_| "http://n8n:5678".into()),
         allow_signup: !matches!(env::var("ALLOW_SIGNUP").unwrap_or_default().to_lowercase().as_str(), "false" | "0" | "no"),
         max_users: env_int("MAX_USERS", 50),
+        vapid_public: env::var("VAPID_PUBLIC_KEY").unwrap_or_default(),
+        vapid_private: env::var("VAPID_PRIVATE_KEY").unwrap_or_default(),
+        vapid_subject: env::var("VAPID_SUBJECT").unwrap_or_else(|_| "mailto:owner@localhost".into()),
     });
     if cfg.jwt_secret.len() < 32 || cfg.service_key.len() < 32 {
         anyhow::bail!("JWT_SECRET and SERVICE_API_KEY must each be at least 32 characters");

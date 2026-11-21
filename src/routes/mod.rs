@@ -4,6 +4,7 @@ pub mod checkins;
 pub mod comm;
 pub mod finance;
 pub mod jobs;
+pub mod push;
 pub mod settings;
 pub mod lifestyle;
 pub mod study;
@@ -21,6 +22,11 @@ pub fn router() -> Router<AppState> {
         .route("/auth/me", get(auth_routes::me))
         .route("/auth/password", post(auth_routes::change_password))
         .route("/settings/prefs", get(settings::prefs_get).put(settings::prefs_put))
+        .route("/push/key", get(push::key))
+        .route("/push/subscribe", post(push::subscribe))
+        .route("/push/unsubscribe", post(push::unsubscribe))
+        .route("/push/test", post(push::test))
+        .route("/push/notify", post(push::notify))
         .route("/comm/pair/code", post(comm::pair_code))
         .route("/comm/pair/join", post(comm::pair_join))
         .route("/comm/conversations", get(comm::conversations))
