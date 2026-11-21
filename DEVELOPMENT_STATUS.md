@@ -1,8 +1,8 @@
 # Personal OS — Development Status
 
-**Last updated:** 2026-11-20
-**Current phase:** PHASE 6 — Settings COMPLETE & tested. (Finance = Phase 5 done.)
-Next: backups (Phase 7), backend test suite, UI polish, assistant Finance tools (at deploy).
+**Last updated:** 2026-11-21
+**Current phase:** PHASE 7 (backups) + automated test suite + CI COMPLETE & tested.
+Next: UI/UX polish (Phase 8), security hardening (login rate-limit), deploy coordination.
 **Lead engineer note:** This file is the single source of truth for project state.
 Update it after each completed phase.
 
@@ -182,6 +182,26 @@ production/schema action on approval:
 - **Tested:** 10 backend checks pass (defaults, validation, password round-trip, member self-
   scope); browser test renders Settings + Finance with **0 console errors**, theme toggle works,
   email resolves. SW cache bumped `pos-v8`→`pos-v9`, `/settings` excluded from cache.
+
+## Phase 7 — Backups (DONE, tested locally)
+- `scripts/pg-backup.sh`: nightly gzipped `pg_dump` (whole DB incl. chat media bytea) to
+  `~/pos-backups`, with timestamped names, N-day retention (default 14, deletes only our own
+  dumps), `flock` single-run lock, disk-space guard, verification (gzip integrity + size + dump
+  header), and logging. Promotes a temp file to final name only after verification.
+- `scripts/pg-restore.sh`: restores a backup; **isolated test DB by default**, `--target live`
+  (with typed confirmation) for disaster recovery.
+- `scripts/BACKUP_RESTORE.md`: cron setup, verify-a-backup, disaster recovery, off-site copies.
+- **Tested locally:** backup→isolated restore round-trip matches row counts; **media bytea
+  survives byte-identical (md5 match)**; retention deletes only `pos-*.sql.gz` and leaves foreign
+  files; concurrent run skips via lock. Runs on the VM via cron; owner adds the cron line (doc'd).
+
+## Automated testing + CI (DONE)
+- `scripts/smoke-test.sh`: 44-check API integration/regression suite (auth, boundaries, tasks,
+  jobs, checkins, Leitner, health, fun, finance, settings, password, communication + isolation).
+  Exit non-zero on any failure. **44/44 pass against a fresh DB.**
+- `.github/workflows/ci.yml`: on push/PR — `cargo build --release --locked`, spin Postgres 16,
+  boot the API (runs migrations 0001–0009 + owner bootstrap), run the smoke suite. Official
+  `actions/checkout` only; test-only dummy secrets. (Fills the §13 "no tests existed" gap.)
 
 ## Pending approvals
 - [x] Finance DB schema (migration 0008) — APPROVED, implemented.

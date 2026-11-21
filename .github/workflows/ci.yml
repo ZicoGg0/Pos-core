@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pos
+          POSTGRES_PASSWORD: postest
+          POSTGRES_DB: pos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pos -d pos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://pos:postest@localhost:5432/pos
+      JWT_SECRET: ci_test_jwt_secret_0123456789abcdef
+      SERVICE_API_KEY: ci_test_service_key_0123456789abcdef
+      OWNER_EMAIL: owner@test.local
+      OWNER_PASSWORD: ownerpass123
+      OWNER_NAME: CI Owner
+      N8N_BASE_URL: http://127.0.0.1:59999
+      BIND_ADDR: 127.0.0.1:8080
+      WEB_DIR: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Start API (runs migrations 0001-0009 + bootstraps owner)
+        run: |
+          ./target/release/pos-core &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:8080/health && { echo " api up"; break; }
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/health >/dev/null
+
+      - name: Integration tests
+        run: BASE=http://127.0.0.1:8080 bash scripts/smoke-test.sh
+
+      - name: Stop API
+        if: always()
+        run: kill "$(cat /tmp/api.pid)" 2>/dev/null || true
