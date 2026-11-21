@@ -70,7 +70,7 @@ main.cmain{padding:16px;max-width:1120px}.cm{display:grid;grid-template-columns:
 .tx{white-space:pre-wrap}.mt{font-size:.72rem;color:var(--mu);margin-top:2px}.mi{max-width:min(260px,100%);max-height:280px;border-radius:8px;cursor:zoom-in;background:var(--bd);min-height:60px}.bb audio{max-width:100%;height:36px}
 .cmp{display:flex;align-items:flex-end;gap:6px;padding:10px;border-top:1px solid var(--bd);flex:none}.cmp textarea{resize:none;min-height:36px;max-height:120px}.rc{display:flex;align-items:center;gap:10px;width:100%}.rd{width:10px;height:10px;border-radius:50%;background:var(--er);animation:pl 1s infinite alternate}@keyframes pl{to{opacity:.3}}
 .offb{background:var(--s2);color:var(--wn);font-size:.82rem;padding:6px 14px;border-bottom:1px solid var(--bd)}.code{font:600 1.8rem/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2em;padding:10px 0}
-@media(max-width:719px){main.cmain{padding:8px}.cm{grid-template-columns:1fr;height:calc(100vh - 68px);height:calc(100dvh - 68px)}.cm.thr .cl,.cm:not(.thr) .ct{display:none}.cmh .bk{display:grid}.mg{max-width:90%}}
+@media(max-width:719px){main.cmain{padding:8px}.cm{grid-template-columns:1fr;height:calc(100vh - 68px);height:calc(100dvh - 68px)}.cm.thr .cl,.cm:not(.thr):not(.as) .ct{display:none}.cmh .bk{display:grid}.mg{max-width:90%}}
 .cm.as{grid-template-columns:1fr;max-width:780px}.dots i{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--mu);animation:pl .8s infinite alternate}.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}.asq{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
 @media(pointer:coarse){.nv{min-height:44px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
@@ -202,12 +202,12 @@ async function boot(){lastView='';if(!token){authScreen();return}
  await loadPrefs();if(me.role==='member')view='comms';shell();render()}
 /* ---------- Assistant ---------- */
 let ahist=(()=>{try{return JSON.parse(localStorage.getItem('as_h')||'[]')}catch{return[]}})(),abusy=false,aerr=null;
-const ASQ=['What is on my plate today?','Add a task to call the bank tomorrow at 10','I want to study Rust','Log my lunch: jollof rice and chicken'];
+const ASQ=['What is on my plate today?','How much did I spend this month?','Record a 2000 transport expense','Log my lunch: jollof rice and chicken'];
 const asSave=()=>{try{localStorage.setItem('as_h',JSON.stringify(ahist.slice(-40)))}catch{}};
 async function vAssist(){return`<div class="cm as"><section class="ct card" aria-label="Assistant"><div class="cmh"><span class="logo" style="width:28px;height:28px">${ic('bot')}</span><h2>Assistant</h2><button class="btn" onclick="asNew()">New chat</button></div><div id="asm" class="msgs" aria-live="polite"></div><div class="cmp"><textarea id="asx" rows="1" maxlength="2000" placeholder="Ask a question or tell me what to do" aria-label="Message to the assistant"></textarea><button class="btn pri" id="ass" aria-label="Send message" onclick="asSend()">${ic('send')}</button></div></section></div>`}
 function asInit(){paintAs(true);const t=$('#asx');t.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!matchMedia('(pointer:coarse)').matches){e.preventDefault();asSend()}};t.oninput=()=>{t.style.height='auto';t.style.height=Math.min(t.scrollHeight,120)+'px'};if(!matchMedia('(pointer:coarse)').matches)t.focus()}
 function paintAs(force){const M=$('#asm');if(!M)return;const near=force||M.scrollHeight-M.scrollTop-M.clientHeight<120,b=(r,c)=>`<div class="mg ${r==='user'?'me':''}"><div class="bb"><span class="tx">${esc(c)}</span></div></div>`;
- M.innerHTML=ahist.length||abusy||aerr?ahist.map(x=>b(x.role,x.content)).join('')+(abusy?'<div class="mg"><div class="bb dots" role="status" aria-label="The assistant is working"><span><i></i><i></i><i></i></span></div></div>':'')+(aerr?`<div class="mg"><div class="bb"><span class="er">${esc(aerr.msg)}</span><span><button class="lk" onclick="asRetry()">Try again</button></span></div></div>`:''):`<div class="empty" style="margin:auto">${ic('bot')}<p>I can add tasks, log meals and workouts, track jobs and study, and answer questions about your data. Finance and Communication are not connected yet.</p><div class="asq">${ASQ.map((q,i)=>`<button class="btn" onclick="asSend(ASQ[${i}])">${esc(q)}</button>`).join('')}</div></div>`;
+ M.innerHTML=ahist.length||abusy||aerr?ahist.map(x=>b(x.role,x.content)).join('')+(abusy?'<div class="mg"><div class="bb dots" role="status" aria-label="The assistant is working"><span><i></i><i></i><i></i></span></div></div>':'')+(aerr?`<div class="mg"><div class="bb"><span class="er">${esc(aerr.msg)}</span><span><button class="lk" onclick="asRetry()">Try again</button></span></div></div>`:''):`<div class="empty" style="margin:auto">${ic('bot')}<p>I can add tasks, log meals and workouts, track jobs, study and finances, and answer questions about your data. Communication is not connected yet.</p><div class="asq">${ASQ.map((q,i)=>`<button class="btn" onclick="asSend(ASQ[${i}])">${esc(q)}</button>`).join('')}</div></div>`;
  if(near)M.scrollTop=M.scrollHeight}
 async function asSend(txt,retry){if(abusy)return;const t=$('#asx'),m=(txt??(t?t.value:'')).trim();if(!m)return;
  if(!retry&&t&&txt===undefined){t.value='';t.style.height='auto'}
@@ -366,7 +366,7 @@ async function vSettings(){
    <p class="err" id="prerr"></p><button class="btn pri" style="margin-top:10px" onclick="savePrefs()">Save preferences</button></section>
   <section class="card cp c5"><h2>Notifications</h2><p class="mu sm">New-job alerts and daily meal and exercise ideas are sent by your n8n automations and email. Turn them on or off, or reconnect Gmail, in your n8n workflows.</p>
    <h2 style="margin-top:14px">Privacy &amp; security</h2><p class="mu sm">You're signed in with a 30-day token kept on this device. Sign out to remove it here. Your data and chat media live in your own Postgres database and are included in the nightly backup.</p>
-   <h2 style="margin-top:14px">About</h2><p class="mu sm">Personal OS v${APP_VERSION} · offline cache pos-v9</p>
+   <h2 style="margin-top:14px">About</h2><p class="mu sm">Personal OS v${APP_VERSION} · offline cache pos-v10</p>
    <button class="btn" style="margin-top:8px" onclick="logout()">Sign out</button></section>
  </div>`;
 }
